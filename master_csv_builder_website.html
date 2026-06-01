@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Class CSV Master Builder</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #e4e7ec;
+      --accent: #2563eb;
+      --accent-dark: #1d4ed8;
+      --success: #039855;
+      --danger: #d92d20;
+      --shadow: 0 20px 50px rgba(16, 24, 40, 0.08);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 32rem),
+        radial-gradient(circle at bottom right, rgba(3, 152, 85, 0.10), transparent 30rem),
+        var(--bg);
+      color: var(--ink);
+      padding: 32px 16px;
+    }
+
+    .app {
+      width: min(1050px, 100%);
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 4rem);
+      line-height: 0.95;
+      letter-spacing: -0.06em;
+    }
+
+    .subtitle {
+      max-width: 720px;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: rgba(255,255,255,0.86);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(228, 231, 236, 0.85);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+
+    .section-title {
+      margin: 0 0 6px;
+      font-size: 1.2rem;
+      letter-spacing: -0.02em;
+    }
+
+    .section-note {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.95rem;
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 13px 14px;
+      font-size: 1rem;
+      outline: none;
+      background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    }
+
+    .drop-zone {
+      position: relative;
+      border: 2px dashed #cbd5e1;
+      border-radius: 18px;
+      padding: 28px 18px;
+      text-align: center;
+      background: #f8fafc;
+      transition: border-color 0.15s, background 0.15s, transform 0.15s;
+      cursor: pointer;
+      margin: 16px 0;
+    }
+
+    .drop-zone.dragover {
+      border-color: var(--accent);
+      background: #eff6ff;
+      transform: translateY(-1px);
+    }
+
+    .drop-zone input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .upload-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 10px;
+      display: grid;
+      place-items: center;
+      border-radius: 16px;
+      background: #e0ecff;
+      color: var(--accent);
+      font-size: 1.5rem;
+      font-weight: 900;
+    }
+
+    .drop-title { font-weight: 800; margin: 0 0 4px; }
+    .drop-subtitle { color: var(--muted); margin: 0; font-size: 0.92rem; }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    button, .download-link {
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-size: 0.98rem;
+      font-weight: 800;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+    }
+
+    button:hover, .download-link:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    .primary, .download-link {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 10px 20px rgba(37, 99, 235, 0.20);
+    }
+
+    .primary:hover, .download-link:hover { background: var(--accent-dark); }
+    .secondary { background: #eef2ff; color: #243b7a; }
+    .ghost { background: #f2f4f7; color: #344054; }
+    .danger { background: #fef3f2; color: var(--danger); }
+
+    .status {
+      min-height: 26px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-top: 10px;
+    }
+
+    .status.good { color: var(--success); font-weight: 700; }
+    .status.bad { color: var(--danger); font-weight: 700; }
+
+    .file-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .file-pill {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px 14px;
+      background: #fff;
+    }
+
+    .file-pill strong { display: block; }
+    .file-pill span { color: var(--muted); font-size: 0.9rem; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 520px) {
+      .stats { grid-template-columns: 1fr; }
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      background: #fff;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 1.45rem;
+      letter-spacing: -0.04em;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 0.87rem;
+    }
+
+    .preview-shell {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fff;
+      max-height: 440px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 680px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #f9fafb;
+      font-size: 0.82rem;
+      color: #475467;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .empty {
+      border: 1px dashed #cbd5e1;
+      border-radius: 18px;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      background: #f8fafc;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="hero">
+      <div class="eyebrow">CSV Class Combiner</div>
+      <h1>Build one master roster CSV.</h1>
+      <p class="subtitle">Upload each class CSV one at a time, type the class name, then export one master CSV with the headers <strong>First Name</strong>, <strong>Last Name</strong>, <strong>Student ID</strong>, and <strong>Class</strong>. If a student is missing an ID, the app assigns one automatically when the final CSV is created.</p>
+    </header>
+
+    <section class="layout">
+      <div class="card">
+        <h2 class="section-title">Upload a class CSV</h2>
+        <p class="section-note">Each uploaded CSV should have no header row and should be ordered as Student ID, First Name, Last Name. Blank Student ID cells will be filled with automatic IDs in the final master CSV.</p>
+
+        <label for="className">What class is this CSV for?</label>
+        <input id="className" type="text" placeholder="Example: Algebra 2 Period 3" autocomplete="off" />
+
+        <div id="dropZone" class="drop-zone" role="button" tabindex="0" aria-label="Upload CSV file">
+          <input id="csvFile" type="file" accept=".csv,text/csv" />
+          <div class="upload-icon">↑</div>
+          <p class="drop-title">Choose a CSV or drag it here</p>
+          <p class="drop-subtitle">Upload one class at a time</p>
+        </div>
+
+        <div class="buttons">
+          <button id="uploadBtn" class="primary">Add this CSV</button>
+          <button id="addMoreBtn" class="secondary hidden">Add More</button>
+          <button id="finishBtn" class="primary hidden">Finished</button>
+          <button id="resetBtn" class="danger">Reset</button>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div id="fileList" class="file-list"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Master CSV Preview</h2>
+        <p class="section-note">The preview appears after you click <strong>Finished</strong>. You can still add more files afterward.</p>
+
+        <div class="stats">
+          <div class="stat"><b id="studentCount">0</b><span>Students</span></div>
+          <div class="stat"><b id="classCount">0</b><span>Classes</span></div>
+          <div class="stat"><b id="fileCount">0</b><span>Files</span></div>
+        </div>
+
+        <div id="previewEmpty" class="empty">No preview yet. Add at least one CSV, then click Finished.</div>
+        <div id="previewShell" class="preview-shell hidden">
+          <table>
+            <thead>
+              <tr>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Student ID</th>
+                <th>Class</th>
+              </tr>
+            </thead>
+            <tbody id="previewBody"></tbody>
+          </table>
+        </div>
+
+        <div class="buttons">
+          <button id="downloadBtn" class="primary hidden">Download Master CSV</button>
+          <button id="copyBtn" class="ghost hidden">Copy CSV Text</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const masterRows = [];
+    const uploadedFiles = [];
+    const MAX_FILES = 6;
+
+    const classNameInput = document.getElementById('className');
+    const csvFileInput = document.getElementById('csvFile');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const addMoreBtn = document.getElementById('addMoreBtn');
+    const finishBtn = document.getElementById('finishBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const statusEl = document.getElementById('status');
+    const fileList = document.getElementById('fileList');
+    const previewEmpty = document.getElementById('previewEmpty');
+    const previewShell = document.getElementById('previewShell');
+    const previewBody = document.getElementById('previewBody');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const studentCount = document.getElementById('studentCount');
+    const classCount = document.getElementById('classCount');
+    const fileCount = document.getElementById('fileCount');
+    const dropZone = document.getElementById('dropZone');
+
+    function parseCSV(text) {
+      const rows = [];
+      let row = [];
+      let field = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const next = text[i + 1];
+
+        if (char === '"' && inQuotes && next === '"') {
+          field += '"';
+          i++;
+        } else if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          row.push(field.trim());
+          field = '';
+        } else if ((char === '\n' || char === '\r') && !inQuotes) {
+          if (char === '\r' && next === '\n') i++;
+          row.push(field.trim());
+          if (row.some(cell => cell !== '')) rows.push(row);
+          row = [];
+          field = '';
+        } else {
+          field += char;
+        }
+      }
+
+      row.push(field.trim());
+      if (row.some(cell => cell !== '')) rows.push(row);
+      return rows;
+    }
+
+    function rowsToRecords(rows, className) {
+      if (!rows.length) return [];
+
+      const records = [];
+
+      rows.forEach(row => {
+        // All uploaded files are expected to have no header row.
+        // Column order: Student ID, First Name, Last Name.
+        const [studentId = '', firstName = '', lastName = ''] = row;
+        if (firstName || lastName || studentId) {
+          records.push({
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            studentId: studentId.trim(),
+            className
+          });
+        }
+      });
+
+      return records;
+    }
+
+    function assignMissingStudentIds() {
+      const usedIds = new Set(masterRows.map(row => String(row.studentId || '').trim()).filter(Boolean));
+      let autoNumber = 1;
+
+      masterRows.forEach(row => {
+        if (String(row.studentId || '').trim()) return;
+
+        let newId;
+        do {
+          newId = `AUTO-${String(autoNumber).padStart(4, '0')}`;
+          autoNumber++;
+        } while (usedIds.has(newId));
+
+        row.studentId = newId;
+        usedIds.add(newId);
+      });
+    }
+
+    function escapeCSV(value) {
+      const text = String(value ?? '');
+      if (/[",\n\r]/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
+      return text;
+    }
+
+    function buildCSV() {
+      assignMissingStudentIds();
+      const headers = ['First Name', 'Last Name', 'Student ID', 'Class'];
+      const lines = [headers.join(',')];
+      masterRows.forEach(row => {
+        lines.push([
+          row.firstName,
+          row.lastName,
+          row.studentId,
+          row.className
+        ].map(escapeCSV).join(','));
+      });
+      return lines.join('\n');
+    }
+
+    function setStatus(message, type = '') {
+      statusEl.textContent = message;
+      statusEl.className = 'status' + (type ? ' ' + type : '');
+    }
+
+    function updateStats() {
+      studentCount.textContent = masterRows.length;
+      classCount.textContent = new Set(masterRows.map(row => row.className)).size;
+      fileCount.textContent = uploadedFiles.length;
+    }
+
+    function renderFileList() {
+      fileList.innerHTML = '';
+      uploadedFiles.forEach(file => {
+        const div = document.createElement('div');
+        div.className = 'file-pill';
+        div.innerHTML = `
+          <div>
+            <strong>${escapeHTML(file.className)}</strong>
+            <span>${escapeHTML(file.name)} • ${file.count} students</span>
+          </div>
+          <span>Added</span>
+        `;
+        fileList.appendChild(div);
+      });
+    }
+
+    function renderPreview() {
+      assignMissingStudentIds();
+      previewBody.innerHTML = '';
+      masterRows.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHTML(row.firstName)}</td>
+          <td>${escapeHTML(row.lastName)}</td>
+          <td>${escapeHTML(row.studentId)}</td>
+          <td>${escapeHTML(row.className)}</td>
+        `;
+        previewBody.appendChild(tr);
+      });
+
+      previewEmpty.classList.add('hidden');
+      previewShell.classList.remove('hidden');
+      downloadBtn.classList.remove('hidden');
+      copyBtn.classList.remove('hidden');
+    }
+
+    function downloadMasterCSV() {
+      const csv = buildCSV();
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const tempLink = document.createElement('a');
+      tempLink.href = url;
+      tempLink.download = 'master_class_roster.csv';
+      document.body.appendChild(tempLink);
+      tempLink.click();
+      document.body.removeChild(tempLink);
+      URL.revokeObjectURL(url);
+    }
+
+    function resetUploadForm() {
+      classNameInput.value = '';
+      csvFileInput.value = '';
+      classNameInput.focus();
+    }
+
+    function escapeHTML(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    uploadBtn.addEventListener('click', async () => {
+      const className = classNameInput.value.trim();
+      const file = csvFileInput.files[0];
+
+      if (!className) {
+        setStatus('Please type the class name before uploading.', 'bad');
+        classNameInput.focus();
+        return;
+      }
+
+      if (!file) {
+        setStatus('Please choose a CSV file first.', 'bad');
+        return;
+      }
+
+      if (uploadedFiles.length >= MAX_FILES) {
+        setStatus(`You have already added ${MAX_FILES} files. Click Finished to preview and export.`, 'bad');
+        return;
+      }
+
+      try {
+        const text = await file.text();
+        const parsedRows = parseCSV(text);
+        const records = rowsToRecords(parsedRows, className);
+
+        if (!records.length) {
+          setStatus('That CSV did not contain any student rows.', 'bad');
+          return;
+        }
+
+        masterRows.push(...records);
+        uploadedFiles.push({ name: file.name, className, count: records.length });
+        updateStats();
+        renderFileList();
+
+        addMoreBtn.classList.remove('hidden');
+        finishBtn.classList.remove('hidden');
+        setStatus(`Added ${records.length} students for ${className}.`, 'good');
+        resetUploadForm();
+      } catch (error) {
+        setStatus(error.message || 'Something went wrong while reading the CSV.', 'bad');
+      }
+    });
+
+    addMoreBtn.addEventListener('click', () => {
+      previewShell.classList.add('hidden');
+      previewEmpty.classList.remove('hidden');
+      downloadBtn.classList.add('hidden');
+      copyBtn.classList.add('hidden');
+      resetUploadForm();
+      setStatus('Ready for the next class CSV.');
+    });
+
+    finishBtn.addEventListener('click', () => {
+      if (!masterRows.length) {
+        setStatus('Add at least one CSV before finishing.', 'bad');
+        return;
+      }
+
+      assignMissingStudentIds();
+      renderPreview();
+      setStatus('Preview is ready. Missing Student IDs were assigned before the preview was generated.', 'good');
+    });
+
+    resetBtn.addEventListener('click', () => {
+      masterRows.length = 0;
+      uploadedFiles.length = 0;
+      fileList.innerHTML = '';
+      previewBody.innerHTML = '';
+      previewShell.classList.add('hidden');
+      previewEmpty.classList.remove('hidden');
+      downloadBtn.classList.add('hidden');
+      copyBtn.classList.add('hidden');
+      addMoreBtn.classList.add('hidden');
+      finishBtn.classList.add('hidden');
+      setStatus('Everything has been reset.');
+      updateStats();
+      resetUploadForm();
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      if (!masterRows.length) {
+        setStatus('Add at least one CSV before downloading.', 'bad');
+        return;
+      }
+      assignMissingStudentIds();
+      renderPreview();
+      downloadMasterCSV();
+      setStatus('Master CSV downloaded.', 'good');
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(buildCSV());
+        setStatus('Master CSV text copied to your clipboard.', 'good');
+      } catch {
+        setStatus('Could not copy automatically. Use the download button instead.', 'bad');
+      }
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, event => {
+        event.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, event => {
+        event.preventDefault();
+        dropZone.classList.remove('dragover');
+      });
+    });
+
+    dropZone.addEventListener('drop', event => {
+      const file = event.dataTransfer.files[0];
+      if (!file) return;
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      csvFileInput.files = dataTransfer.files;
+      setStatus(`${file.name} selected.`);
+    });
+
+    dropZone.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        csvFileInput.click();
+      }
+    });
+
+    csvFileInput.addEventListener('change', () => {
+      const file = csvFileInput.files[0];
+      if (file) setStatus(`${file.name} selected.`);
+    });
+
+    updateStats();
+  </script>
+</body>
+</html>
