@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Class CSV Master Builder V1</title>
+  <title>Class CSV Master Builder V1.1</title>
   <style>
     :root {
       --bg: #f6f7fb;
@@ -308,13 +308,13 @@
     <header class="hero">
       <div class="eyebrow">CSV Class Combiner</div>
       <h1>Build one master roster CSV.</h1>
-      <p class="subtitle">Upload each class CSV one at a time, type the class name, then export one master CSV with the headers <strong>First Name</strong>, <strong>Last Name</strong>, <strong>Student ID</strong>, and <strong>Class</strong>.</p>
+      <p class="subtitle">Upload each class CSV one at a time, type the class name, then export one master CSV with the headers <strong>First Name</strong>, <strong>Last Name</strong>, <strong>Student ID</strong>, and <strong>Class</strong>. If a student is missing an ID, the app assigns a plain numeric ID automatically. If the same student appears in multiple classes without an ID, the app keeps the same generated ID for each class row.</p>
     </header>
 
     <section class="layout">
       <div class="card">
         <h2 class="section-title">Upload a class CSV</h2>
-        <p class="section-note">Your sample file appears to be ordered as Student ID, First Name, Last Name. This page also tries to recognize files that already include headers.</p>
+        <p class="section-note">Each uploaded CSV should have no header row and should be ordered as Student ID, First Name, Last Name. Blank Student ID cells will be filled with plain numeric IDs. Matching students without IDs across multiple classes will keep the same generated ID.</p>
 
         <label for="className">What class is this CSV for?</label>
         <input id="className" type="text" placeholder="Example: Algebra 2 Period 3" autocomplete="off" />
@@ -340,7 +340,7 @@
 
       <div class="card">
         <h2 class="section-title">Master CSV Preview</h2>
-        <p class="section-note">The preview appears after you click <strong>Finished</strong>. You can still add more files afterward.</p>
+        <p class="section-note">The preview updates automatically after each class upload. You can still click Finished when you are ready to export.</p>
 
         <div class="stats">
           <div class="stat"><b id="studentCount">0</b><span>Students</span></div>
@@ -348,7 +348,7 @@
           <div class="stat"><b id="fileCount">0</b><span>Files</span></div>
         </div>
 
-        <div id="previewEmpty" class="empty">No preview yet. Add at least one CSV, then click Finished.</div>
+        <div id="previewEmpty" class="empty">No preview yet. Add your first class CSV to begin.</div>
         <div id="previewShell" class="preview-shell hidden">
           <table>
             <thead>
@@ -364,7 +364,7 @@
         </div>
 
         <div class="buttons">
-          <a id="downloadLink" class="download-link hidden" download="master_class_roster.csv">Download Master CSV</a>
+          <button id="downloadBtn" class="primary hidden">Download Master CSV</button>
           <button id="copyBtn" class="ghost hidden">Copy CSV Text</button>
         </div>
       </div>
@@ -387,7 +387,7 @@
     const previewEmpty = document.getElementById('previewEmpty');
     const previewShell = document.getElementById('previewShell');
     const previewBody = document.getElementById('previewBody');
-    const downloadLink = document.getElementById('downloadLink');
+    const downloadBtn = document.getElementById('downloadBtn');
     const copyBtn = document.getElementById('copyBtn');
     const studentCount = document.getElementById('studentCount');
     const classCount = document.getElementById('classCount');
@@ -428,50 +428,73 @@
       return rows;
     }
 
-    function normalizeHeader(value) {
-      return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    }
-
-    function hasHeaders(firstRow) {
-      const joined = firstRow.map(normalizeHeader).join('|');
-      return joined.includes('firstname') || joined.includes('lastname') || joined.includes('studentid') || joined.includes('idnumber');
-    }
-
     function rowsToRecords(rows, className) {
       if (!rows.length) return [];
 
       const records = [];
-      const firstRow = rows[0];
-      const headerMode = hasHeaders(firstRow);
 
-      if (headerMode) {
-        const headers = firstRow.map(normalizeHeader);
-        const firstNameIndex = headers.findIndex(h => h === 'firstname' || h === 'first');
-        const lastNameIndex = headers.findIndex(h => h === 'lastname' || h === 'last');
-        const idIndex = headers.findIndex(h => h === 'studentid' || h === 'studentnumber' || h === 'id' || h === 'idnumber');
+      rows.forEach(row => {
+        // All uploaded files are expected to have no header row.
+        // Normal column order: Student ID, First Name, Last Name.
+        // If a missing-ID row only has two columns, treat it as First Name, Last Name.
+        const cleanedRow = row.map(cell => String(cell || '').trim());
+        let studentId = '';
+        let firstName = '';
+        let lastName = '';
 
-        if (firstNameIndex === -1 || lastNameIndex === -1 || idIndex === -1) {
-          throw new Error('This CSV has headers, but I could not find First Name, Last Name, and Student ID columns.');
+        if (cleanedRow.length === 2) {
+          [firstName = '', lastName = ''] = cleanedRow;
+        } else {
+          [studentId = '', firstName = '', lastName = ''] = cleanedRow;
         }
 
-        rows.slice(1).forEach(row => {
-          const firstName = row[firstNameIndex] || '';
-          const lastName = row[lastNameIndex] || '';
-          const studentId = row[idIndex] || '';
-          if (firstName || lastName || studentId) {
-            records.push({ firstName, lastName, studentId, className });
-          }
-        });
-      } else {
-        rows.forEach(row => {
-          const [studentId = '', firstName = '', lastName = ''] = row;
-          if (firstName || lastName || studentId) {
-            records.push({ firstName, lastName, studentId, className });
-          }
-        });
-      }
+        if (firstName || lastName || studentId) {
+          records.push({ firstName, lastName, studentId, className });
+        }
+      });
 
       return records;
+    }
+
+    function studentNameKey(row) {
+      return `${String(row.firstName || '').trim().toLowerCase()}|${String(row.lastName || '').trim().toLowerCase()}`;
+    }
+
+    function assignMissingStudentIds() {
+      const usedIds = new Set(masterRows.map(row => String(row.studentId || '').trim()).filter(Boolean));
+      const nameToId = new Map();
+      let autoNumber = 1;
+
+      masterRows.forEach(row => {
+        const id = String(row.studentId || '').trim();
+        const key = studentNameKey(row);
+        if (id && key !== '|') {
+          nameToId.set(key, id);
+        }
+      });
+
+      masterRows.forEach(row => {
+        const currentId = String(row.studentId || '').trim();
+        const key = studentNameKey(row);
+        if (currentId) return;
+
+        if (key !== '|' && nameToId.has(key)) {
+          row.studentId = nameToId.get(key);
+          return;
+        }
+
+        let newId;
+        do {
+          newId = String(autoNumber).padStart(7, '0');
+          autoNumber++;
+        } while (usedIds.has(newId));
+
+        row.studentId = newId;
+        usedIds.add(newId);
+        if (key !== '|') {
+          nameToId.set(key, newId);
+        }
+      });
     }
 
     function escapeCSV(value) {
@@ -481,6 +504,7 @@
     }
 
     function buildCSV() {
+      assignMissingStudentIds();
       const headers = ['First Name', 'Last Name', 'Student ID', 'Class'];
       const lines = [headers.join(',')];
       masterRows.forEach(row => {
@@ -522,13 +546,14 @@
     }
 
     function renderPreview() {
+      assignMissingStudentIds();
       previewBody.innerHTML = '';
       masterRows.forEach(row => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${escapeHTML(row.firstName)}</td>
           <td>${escapeHTML(row.lastName)}</td>
-          <td>${escapeHTML(row.studentId)}</td>
+          <td>${escapeHTML(String(row.studentId || '').trim() || 'Missing ID')}</td>
           <td>${escapeHTML(row.className)}</td>
         `;
         previewBody.appendChild(tr);
@@ -536,18 +561,21 @@
 
       previewEmpty.classList.add('hidden');
       previewShell.classList.remove('hidden');
-      downloadLink.classList.remove('hidden');
+      downloadBtn.classList.remove('hidden');
       copyBtn.classList.remove('hidden');
-      updateDownload();
     }
 
-    function updateDownload() {
+    function downloadMasterCSV() {
       const csv = buildCSV();
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
-      if (downloadLink.dataset.url) URL.revokeObjectURL(downloadLink.dataset.url);
-      downloadLink.href = url;
-      downloadLink.dataset.url = url;
+      const tempLink = document.createElement('a');
+      tempLink.href = url;
+      tempLink.download = 'master_class_roster.csv';
+      document.body.appendChild(tempLink);
+      tempLink.click();
+      document.body.removeChild(tempLink);
+      URL.revokeObjectURL(url);
     }
 
     function resetUploadForm() {
@@ -597,9 +625,10 @@
 
         masterRows.push(...records);
         uploadedFiles.push({ name: file.name, className, count: records.length });
+        assignMissingStudentIds();
         updateStats();
         renderFileList();
-        updateDownload();
+        renderPreview();
 
         addMoreBtn.classList.remove('hidden');
         finishBtn.classList.remove('hidden');
@@ -611,12 +640,8 @@
     });
 
     addMoreBtn.addEventListener('click', () => {
-      previewShell.classList.add('hidden');
-      previewEmpty.classList.remove('hidden');
-      downloadLink.classList.add('hidden');
-      copyBtn.classList.add('hidden');
       resetUploadForm();
-      setStatus('Ready for the next class CSV.');
+      setStatus('Ready for the next class CSV. The preview will keep updating as you add files.');
     });
 
     finishBtn.addEventListener('click', () => {
@@ -624,8 +649,10 @@
         setStatus('Add at least one CSV before finishing.', 'bad');
         return;
       }
+
+      assignMissingStudentIds();
       renderPreview();
-      setStatus('Preview is ready. You can download or copy the master CSV.', 'good');
+      setStatus('Preview is ready. Missing Student IDs have already been assigned and matched by student name.', 'good');
     });
 
     resetBtn.addEventListener('click', () => {
@@ -635,13 +662,25 @@
       previewBody.innerHTML = '';
       previewShell.classList.add('hidden');
       previewEmpty.classList.remove('hidden');
-      downloadLink.classList.add('hidden');
+      downloadBtn.classList.add('hidden');
       copyBtn.classList.add('hidden');
       addMoreBtn.classList.add('hidden');
       finishBtn.classList.add('hidden');
       setStatus('Everything has been reset.');
       updateStats();
       resetUploadForm();
+    });
+
+
+    downloadBtn.addEventListener('click', () => {
+      if (!masterRows.length) {
+        setStatus('Add at least one CSV before downloading.', 'bad');
+        return;
+      }
+      assignMissingStudentIds();
+      renderPreview();
+      downloadMasterCSV();
+      setStatus('Master CSV downloaded.', 'good');
     });
 
     copyBtn.addEventListener('click', async () => {
